@@ -5,51 +5,19 @@ const BOOKS_URL = `${URL}/books`;
 const USERS_URL = `${URL}/users`;
 let currentUser;
 
-function handleError(error) {
-  console.error(error);
-  return Promise.reject(error);
-}
-
-function setCurrentUser(user) {
-  currentUser = user;
-  return user;
-}
-
-function fetchUser(userId) {
-  return fetch(`${USERS_URL}/${userId}`)
-    .then(resp => resp.json())
-    .catch(handleError);
-}
-
-const fetchBooks = () => fetch(BOOKS_URL)
-  .then(resp => resp.json())
-  .catch(handleError);
-
-const fetchBook = bookId => fetch(`${BOOKS_URL}/${bookId}`)
-  .then(resp => resp.json())
-  .catch(handleError);
+const api = (url, options = {}) => fetch(url, options)
+  .then((response) => {
+    if (response.ok) {
+      return response.json();
+    }
+    return Promise.reject(response.json());
+  });
 
 function toggleCurrentUserIn(users) {
   if (users.filter(user => user.id === currentUser.id).length === 0) {
     return [...users, currentUser];
   }
   return users.filter(user => user.id !== currentUser.id);
-}
-
-function patchUsers(book) {
-  const config = {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      users: toggleCurrentUserIn(book.users),
-    }),
-  };
-
-  return fetch(`${BOOKS_URL}/${book.id}`, config)
-    .then(resp => resp.json())
-    .catch(handleError);
 }
 
 function renderShowPanel(book) {
@@ -69,7 +37,18 @@ function readButton(book) {
   btn.innerText = `Toggle Read (${currentUser.username})`;
   btn.addEventListener('click', (event) => {
     event.preventDefault();
-    patchUsers(book)
+
+    const options = {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        users: toggleCurrentUserIn(book.users),
+      }),
+    };
+
+    api(`${BOOKS_URL}/${book.id}`, options)
       .then(renderShowPanel);
   });
   return btn;
@@ -80,7 +59,7 @@ const renderBook = (book) => {
   liEl.innerText = book.title;
 
   liEl.addEventListener('click', () => {
-    fetchBook(book.id)
+    api(`${BOOKS_URL}/${book.id}`)
       .then(renderShowPanel);
   });
 
@@ -100,9 +79,10 @@ const showErrorMessage = (error) => {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  fetchUser(1)
-    .then(setCurrentUser);
-  fetchBooks()
+  api(`${USERS_URL}/1`)
+    .then((data) => { currentUser = data; });
+
+  api(BOOKS_URL)
     .then(renderBookList)
     .catch(showErrorMessage);
 });
